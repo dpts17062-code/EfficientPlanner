@@ -142,6 +142,17 @@
           '</section>' +
 
           '<section class="card">' +
+            '<div class="card-head"><div><h2>' + UI.icon('sparkles', 17) + ' Nouveautés</h2><p>Ce qui a été ajouté récemment.</p></div></div>' +
+            '<ul class="muted small" style="margin:0;padding-left:1.2rem;line-height:1.7">' +
+              '<li>Application installable (PWA) : fonctionne hors ligne et s’ajoute à l’écran d’accueil.</li>' +
+              '<li>URL dédiées : /suivi-notes, /habitudes, /projets, /bilan-hebdo, /profil.</li>' +
+              '<li>Calendrier : création, modification, déplacement par glisser-déposer, détection de conflits.</li>' +
+              '<li>École : moyennes pondérées, projection, note nécessaire, validation des pondérations.</li>' +
+              '<li>Tâches, projets, habitudes, objectifs, listes et recherche globale.</li>' +
+            '</ul>' +
+          '</section>' +
+
+          '<section class="card">' +
             '<div class="card-head"><div><h2>' + UI.icon('info', 17) + ' À propos</h2><p>Efficient Planner, version 1.0.</p></div></div>' +
             '<p class="muted small">Une application personnelle pour l\'école, le travail et la vie quotidienne. Aucune connexion requise, aucune donnée transmise. Vos informations restent dans ce navigateur.</p>' +
             '<p class="muted small">Dernière sauvegarde : ' + esc(U.fmtDateTime(Store.get().meta.updatedAt) || '—') + '</p>' +
