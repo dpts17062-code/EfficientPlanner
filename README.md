@@ -4,20 +4,6 @@ Application web personnelle, en français, pour organiser **l'école, le travail
 
 > Tout est enregistré localement. Exportez régulièrement vos données en JSON pour garder une copie.
 
-## Démarrage rapide
-
-1. Ouvrez `index.html` dans un navigateur récent (Edge, Chrome, Firefox ou Safari).
-2. L'application démarre avec un espace vide.
-3. Depuis le tableau de bord ou **Réglages → Vos données**, cliquez sur **Charger les données d'exemple** pour explorer une démo complète.
-
-Pour éviter certaines restrictions des navigateurs sur les fichiers locaux, vous pouvez aussi lancer un petit serveur local :
-
-```bash
-cd "C:\Users\david\Documents\Obsidian Vault\Spare vault\copilot\projects\EfficientPlanner\outputs\efficient-planner"
-python -m http.server 8000
-# puis ouvrir http://localhost:8000
-```
-
 Aucune installation, compilation ou connexion Internet n'est nécessaire.
 
 ## Navigation
