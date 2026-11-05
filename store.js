@@ -96,6 +96,7 @@
       sessions: [],
       courses: [],
       tasks: [],
+      taskSeries: [],
       assessments: [],
       events: [],
       projects: [],
@@ -127,7 +128,7 @@
     next.settings = Object.assign({}, base.settings, isObject(raw.settings) ? raw.settings : {});
     next.settings.colors = Object.assign({}, base.settings.colors, isObject(next.settings.colors) ? next.settings.colors : {});
     next.meta = Object.assign({}, base.meta, isObject(raw.meta) ? raw.meta : {});
-    ['sessions', 'courses', 'tasks', 'assessments', 'events', 'projects', 'habits', 'goals', 'lists'].forEach((key) => {
+    ['sessions', 'courses', 'tasks', 'taskSeries', 'assessments', 'events', 'projects', 'habits', 'goals', 'lists'].forEach((key) => {
       if (!Array.isArray(next[key])) next[key] = [];
       next[key] = next[key].filter(isObject).map((item) => {
         if (!item.id) item.id = U.uid(key.slice(0, 3));
@@ -154,6 +155,7 @@
       storageOk = false;
     }
     if (!state) state = defaultState();
+    ensureTaskOccurrences();
     autoArchive();
     return state;
   }
@@ -202,7 +204,94 @@
     };
   }
 
-  function get() { return state; }
+  function get() { ensureTaskOccurrences(); return state; }
+
+  /* Chaque occurrence est une vraie tâche : la terminer ne termine pas la série.
+     Le curseur persistant évite de recréer une occurrence supprimée. */
+  function ensureTaskOccurrences(to) {
+    if (!state) return;
+    let changed = false;
+    const horizon = U.addDays(new Date(), 90);
+    const requested = U.parseDate(to);
+    if (requested && requested > horizon) horizon.setTime(requested.getTime());
+    state.taskSeries.forEach((series) => {
+      if (series.stopped) return;
+      const anchor = U.parseDate(series.template && series.template.due);
+      const rule = series.recurrence;
+      if (!anchor || !rule || rule.freq !== 'weekly') return;
+      const limit = rule.until ? U.endOfDay(rule.until) : null;
+      const end = limit && limit < horizon ? limit : horizon;
+      // Créer aussi la première occurrence si la série commence loin dans le futur.
+      const target = end < anchor && (!limit || limit >= anchor) ? U.addDays(anchor, 7 * rule.interval) : end;
+      let day = U.parseDate(series.nextDate) || U.startOfDay(anchor);
+      const weekdays = (rule.weekdays || [anchor.getDay()]).map(Number);
+      for (; day <= target; day = U.addDays(day, 1)) {
+        if (limit && day > limit) break;
+        if (rule.count && series.generatedCount >= rule.count) break;
+        const week = U.diffDays(U.startOfWeek(day, 1), U.startOfWeek(anchor, 1)) / 7;
+        if (week % rule.interval !== 0 || !weekdays.includes(day.getDay())) continue;
+        series.generatedCount = (series.generatedCount || 0) + 1;
+        const due = U.toISOdt(new Date(day.getFullYear(), day.getMonth(), day.getDate(), anchor.getHours(), anchor.getMinutes()));
+        if (!(series.skipDates || []).includes(due)) {
+          const task = JSON.parse(JSON.stringify(series.template));
+          task.id = series.generatedCount === 1 && series.firstId ? series.firstId : U.uid('tas');
+          task.due = due;
+          task.seriesId = series.id;
+          task.seriesIndex = series.generatedCount;
+          task.status = series.generatedCount === 1 ? task.status : 'todo';
+          task.progress = task.status === 'done' ? 100 : series.generatedCount === 1 ? Number(task.progress) || 0 : 0;
+          task.completedAt = task.status === 'done' ? U.toISOdt(new Date()) : null;
+          task.archived = false;
+          task.createdAt = U.toISOdt(new Date());
+          task.subtasks = (task.subtasks || []).map((s) => Object.assign({}, s, { id: U.uid('st'), done: series.generatedCount === 1 && !!s.done }));
+          state.tasks.push(task);
+        }
+      }
+      const next = U.toISO(day);
+      if (series.nextDate !== next) { series.nextDate = next; changed = true; }
+      if ((rule.count && series.generatedCount >= rule.count) || (limit && day > limit)) {
+        series.stopped = true;
+        changed = true;
+      }
+    });
+    if (changed) scheduleSave();
+  }
+
+  function taskSeries(task) {
+    return task && task.seriesId ? find('taskSeries', task.seriesId) : null;
+  }
+
+  function stopTaskSeries(task) {
+    const series = taskSeries(task);
+    if (!series) return;
+    series.stopped = true;
+    series.recurrence.count = Math.max(0, task.seriesIndex - 1);
+    state.tasks = state.tasks.filter((t) => t.seriesId !== series.id || t.seriesIndex < task.seriesIndex || t.status === 'done' || t.id === task.id);
+  }
+
+  function saveTask(id, patch, recurrence, scope) {
+    const existing = id ? find('tasks', id) : null;
+    if (existing && taskSeries(existing) && scope !== 'following') return put('tasks', id, patch);
+    const previousSeries = taskSeries(existing);
+    const skipDates = previousSeries ? state.tasks.filter((t) => t.seriesId === previousSeries.id && t.seriesIndex >= existing.seriesIndex && t.status === 'done').map((t) => t.due) : [];
+    if (existing) stopTaskSeries(existing);
+    if (!recurrence || recurrence.freq !== 'weekly') {
+      const single = Object.assign({}, patch, { seriesId: null, seriesIndex: null });
+      return existing ? put('tasks', id, single) : add('tasks', single);
+    }
+    const template = Object.assign({}, patch);
+    const series = {
+      id: U.uid('series'), template: template,
+      recurrence: Object.assign({}, recurrence),
+      nextDate: U.dateKey(template.due), generatedCount: 0,
+      firstId: existing ? existing.id : null, skipDates: skipDates
+    };
+    if (existing) state.tasks = state.tasks.filter((t) => t.id !== existing.id);
+    state.taskSeries.push(series);
+    ensureTaskOccurrences();
+    commit('task:series');
+    return state.tasks.find((t) => t.seriesId === series.id) || null;
+  }
 
   /* ---------------- CRUD ---------------- */
   function add(collection, obj) {
@@ -247,13 +336,16 @@
       state.assessments = state.assessments.filter((a) => a.courseId !== id);
       state.tasks.forEach((t) => { if (t.courseId === id) t.courseId = null; });
       state.events.forEach((e) => { if (e.courseId === id) e.courseId = null; });
+      state.taskSeries.forEach((s) => { if (s.template.courseId === id) s.template.courseId = null; });
     }
     if (collection === 'assessments') {
       state.tasks.forEach((t) => { if (t.assessmentId === id) t.assessmentId = null; });
+      state.taskSeries.forEach((s) => { if (s.template.assessmentId === id) s.template.assessmentId = null; });
     }
     if (collection === 'projects') {
       state.tasks.forEach((t) => { if (t.projectId === id) t.projectId = null; });
       state.events.forEach((e) => { if (e.projectId === id) e.projectId = null; });
+      state.taskSeries.forEach((s) => { if (s.template.projectId === id) s.template.projectId = null; });
     }
     if (collection === 'sessions') {
       state.courses.forEach((c) => { if (c.sessionId === id) c.sessionId = null; });
@@ -293,6 +385,7 @@
     const next = normalize(parsed);
     try { localStorage.setItem(BACKUP_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
     state = next;
+    ensureTaskOccurrences();
     autoArchive();
     flush();
     emit('import');
@@ -505,6 +598,19 @@
       });
     }
     return list.sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.title).localeCompare(String(b.title)));
+  }
+
+  function calendarTasksInRange(from, to, opts) {
+    const o = opts || {};
+    ensureTaskOccurrences(to);
+    const start = U.startOfDay(from), end = U.endOfDay(to);
+    return state.tasks.filter((t) => t.showInCalendar && !t.archived && t.due &&
+      U.parseDate(t.due) >= start && U.parseDate(t.due) <= end &&
+      (!o.categories || o.categories[t.category]) && (!o.courseId || o.courseId === t.courseId))
+      .map((t) => Object.assign({}, t, {
+        source: 'task', start: t.due, end: t.due, allDay: true,
+        isRecurring: !!t.seriesId, occurrenceKey: 'task:' + t.id
+      }));
   }
 
   function conflicts(candidate) {
@@ -1010,6 +1116,7 @@
     CATEGORIES, PRIORITIES, STATUSES, KINDS, ASSESSMENT_TYPES, ASSESSMENT_STATUSES, PROJECT_STATUSES, RECURRENCES, REMINDER_OPTIONS,
     load, saveNow, flush, get, subscribe, commit,
     add, find, put, remove, setSettings,
+    saveTask, taskSeries, stopTaskSeries, ensureTaskOccurrences,
     exportJSON, importJSON, reset, loadDemo,
     normalize, demoData, autoArchive,
     cat, catColor, priority, status, assessmentType, assessmentStatus,
@@ -1019,7 +1126,7 @@
   EP.Select = {
     openTasks, overdueTasks, todayTasks, upcomingTasks, recentlyCompleted, taskBucket, priorityScore, priorityTasks,
     dayProgress, weekProgress,
-    expandEvent, courseSessions, eventsInRange, conflicts, todayEvents, upcomingEvents,
+    expandEvent, courseSessions, eventsInRange, calendarTasksInRange, conflicts, todayEvents, upcomingEvents,
     activeSession, courseAssessments, courseStats, nextAssessment, sessionSummary, schoolDeadlines, deadlines,
     projectTasks, projectStats,
     habitApplicable, habitDone, habitStats, goalProgress,

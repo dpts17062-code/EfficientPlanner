@@ -1954,10 +1954,23 @@ select.input {
 [data-theme="dark"] .event-chip { color: color-mix(in srgb, var(--c, var(--accent)) 58%, #fff); }
 .event-chip:hover { background: color-mix(in srgb, var(--c, var(--accent)) 20%, transparent); }
 .event-chip.is-course { border-left-style: dotted; opacity: 0.9; }
+.event-chip.task-banner {
+  min-height: 22px;
+  height: 24px;
+  max-height: 24px;
+  border-left-width: 3px;
+  cursor: pointer;
+}
+.event-chip.task-banner .icon { flex: 0 0 auto; }
+.event-chip.task-banner.is-done { opacity: 0.55; }
+.event-chip.task-banner.is-done .event-title { text-decoration: line-through; }
+.cal-cell .event-chip.task-banner:active { cursor: pointer; }
+.task-recurrence-editor { padding-top: 8px; border-top: 1px solid var(--border); }
 .event-time { flex: 0 0 auto; font-size: 8.5px; font-weight: 700; opacity: 0.78; }
 .event-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-cell .event-chip { cursor: grab; }
 .cal-cell .event-chip:active { cursor: grabbing; }
+.cal-cell .event-chip.task-banner { cursor: pointer; }
 .is-dragging { opacity: 0.45 !important; }
 .drop-target {
   background: var(--accent-soft) !important;
@@ -3376,7 +3389,6 @@ button.habit-cell:hover { border-color: color-mix(in srgb, var(--c) 45%, var(--b
   .cal-grid { grid-auto-rows: minmax(66px, auto); }
   .cal-cell { min-height: 66px; }
   .cal-daynum { width: 19px; height: 19px; font-size: 10px; }
-  .cal-cell-events .event-chip:nth-child(n + 3) { display: none; }
   .cal-weekdays span { text-align: center; font-size: 7.5px; padding: 6px 2px; }
   .course-grid,
   .project-grid { grid-template-columns: minmax(0, 1fr); }
@@ -3463,4 +3475,3 @@ button.habit-cell:hover { border-color: color-mix(in srgb, var(--c) 45%, var(--b
 }
 
 /* Fin de la feuille de style. */
-

@@ -1,4 +1,4 @@
-const CACHE = 'efficient-planner-v2';
+const CACHE = 'efficient-planner-v3-recurring-tasks';
 const ASSETS = [
   './',
   './index.html',

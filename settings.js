@@ -148,6 +148,8 @@
               '<li>URL dédiées : /suivi-notes, /habitudes, /projets, /bilan-hebdo, /profil.</li>' +
               '<li>Calendrier : création, modification, déplacement par glisser-déposer, détection de conflits.</li>' +
               '<li>École : moyennes pondérées, projection, note nécessaire, validation des pondérations.</li>' +
+              '<li>Tâches récurrentes : jours au choix, intervalle en semaines, nombre d’occurrences ou date de fin.</li>' +
+              '<li>Échéances des tâches : affichage facultatif en petites bannières dans le calendrier.</li>' +
               '<li>Tâches, projets, habitudes, objectifs, listes et recherche globale.</li>' +
             '</ul>' +
           '</section>' +

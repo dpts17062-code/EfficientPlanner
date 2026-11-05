@@ -4,6 +4,30 @@ Application web personnelle, en français, pour organiser **l'école, le travail
 
 > Tout est enregistré localement. Exportez régulièrement vos données en JSON pour garder une copie.
 
+## Tâches récurrentes et échéances au calendrier
+
+Dans une tâche, choisissez une échéance, puis « Chaque semaine ». Sélectionnez les jours (L, M, M, J, V, S, D) et un intervalle en semaines. La répétition peut continuer toujours, se terminer après un nombre d’occurrences (première comprise) ou à une date incluse. Exemple : vendredi, chaque semaine, toujours, pour la feuille de temps.
+
+Chaque occurrence possède son propre statut et ses propres sous-tâches. Les occurrences manquées restent à faire. Vous pouvez modifier ou supprimer une occurrence seule ou celle-ci et les suivantes ; les tâches déjà terminées sont conservées. Pour arrêter une série, modifiez une occurrence, choisissez « Cette occurrence et les suivantes », puis « Ne pas répéter ».
+
+L’option « Afficher l’échéance dans le calendrier » ajoute une bannière de 24 px dans les vues mois, semaine et jour. En semaine et en jour, elle figure au-dessus des heures, avec l’heure d’échéance, sans occuper de créneau ni provoquer de conflit horaire. Cliquez sur la bannière pour modifier la tâche. Les filtres de catégories s’appliquent aussi aux tâches.
+
+Les séries créent les occurrences des 90 prochains jours et prolongent cette période à l’ouverture de l’application, ainsi que lorsqu’on consulte une date plus éloignée dans le calendrier. Aucun onglet ouvert en permanence n’est nécessaire. Les séries et leurs occurrences font partie de la sauvegarde JSON habituelle ; les anciennes sauvegardes restent importables.
+
+## Démarrage rapide
+
+1. Ouvrez `index.html` dans un navigateur récent (Edge, Chrome, Firefox ou Safari).
+2. L'application démarre avec un espace vide.
+3. Depuis le tableau de bord ou **Réglages → Vos données**, cliquez sur **Charger les données d'exemple** pour explorer une démo complète.
+
+Pour éviter certaines restrictions des navigateurs sur les fichiers locaux, vous pouvez aussi lancer un petit serveur local :
+
+```bash
+cd "C:\Users\david\Documents\Obsidian Vault\Spare vault\copilot\projects\EfficientPlanner\outputs\efficient-planner"
+python -m http.server 8000
+# puis ouvrir http://localhost:8000
+```
+
 Aucune installation, compilation ou connexion Internet n'est nécessaire.
 
 ## Navigation

@@ -301,7 +301,8 @@
   Views.calendar = function () {
     const state = calState();
     const range = rangeFor(state);
-    const occs = Select.eventsInRange(range.start, range.end, { includeSchedules: state.schedules, categories: state.cats });
+    const occs = Select.eventsInRange(range.start, range.end, { includeSchedules: state.schedules, categories: state.cats })
+      .concat(Select.calendarTasksInRange(range.start, range.end, { categories: state.cats }));
     const days = state.mode === 'month' ? U.monthGrid((U.parseDate(state.cursor) || new Date()).getFullYear(), (U.parseDate(state.cursor) || new Date()).getMonth(), Store.get().settings.weekStartsOn)
       : Array.from({ length: state.mode === 'week' ? 7 : 1 }, (_, i) => U.addDays(range.start, i));
     const deadlines = Select.deadlines(10).slice(0, 4);
@@ -314,7 +315,7 @@
     const html =
       '<div class="view-inner calendar-view">' +
         '<div class="page-head">' +
-          '<div><p class="eyebrow">Planification</p><h1>Calendrier</h1><p class="page-sub">Tous vos événements réunis — sans doublon entre les espaces.</p></div>' +
+          '<div><p class="eyebrow">Planification</p><h1>Calendrier</h1><p class="page-sub">Vos événements et les échéances choisies, réunis sans doublon.</p></div>' +
           '<button type="button" class="btn btn-primary" data-action="event:new">' + UI.icon('plus', 16) + ' Nouvel événement</button>' +
         '</div>' +
 

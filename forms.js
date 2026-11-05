@@ -209,6 +209,10 @@
     const workVisible = t.category === 'work';
     const teamVisible = t.category === 'school' && t.kind === 'equipe';
     const finishLabel = isNew ? 'Créer la tâche' : 'Enregistrer';
+    const series = Store.taskSeries(t);
+    const recurrence = series ? series.recurrence : { freq: 'none', interval: 1 };
+    const selectedDays = recurrence.weekdays || [U.parseDate(t.due || U.todayKey()).getDay()];
+    const endMode = recurrence.count ? 'count' : recurrence.until ? 'until' : 'never';
 
     const body =
       '<div class="form-grid">' +
@@ -218,6 +222,21 @@
         UI.field('Priorité', '<select class="input" name="priority">' + UI.options(Store.PRIORITIES, t.priority || 'normal') + '</select>') +
         UI.field('Statut', '<select class="input" name="status">' + UI.options(Store.STATUSES, t.status || 'todo') + '</select>') +
         UI.field('Durée estimée', '<div class="input-suffix"><input type="number" class="input" name="estimate" min="0" step="5" value="' + esc(t.estimate || '') + '" placeholder="45"><span>min</span></div>') +
+        '<div class="field span-2"><label class="switch-field switch-inline"><input type="checkbox" name="showInCalendar"' + (t.showInCalendar ? ' checked' : '') + '><span class="switch"></span><span>Afficher l’échéance dans le calendrier</span></label><small class="field-hint">Petite bannière à la date d’échéance, sans réserver de plage horaire.</small></div>' +
+        (series ? UI.field('Appliquer les changements à', '<select class="input" name="taskScope"><option value="occurrence">Cette occurrence seulement</option><option value="following">Cette occurrence et les suivantes</option></select>', { cls: 'span-2', hint: 'Les occurrences déjà terminées sont conservées.' }) : '') +
+        (series ? '<p class="hint span-2">' + UI.icon('repeat', 12) + ' Tous les ' + esc((recurrence.weekdays || []).map((day) => U.weekdayName(day, true)).join(', ')) + ' · toutes les ' + (Number(recurrence.interval) || 1) + ' semaine(s) · ' + (recurrence.count ? recurrence.count + ' occurrences au total' : recurrence.until ? 'jusqu’au ' + esc(U.fmtDate(recurrence.until)) : 'toujours') + '</p>' : '') +
+        '<div class="field span-2 task-recurrence-editor" data-task-recurrence-editor' + (series ? ' hidden' : '') + '>' +
+          '<div class="form-grid form-grid-tight">' +
+            UI.field('Répétition', '<select class="input" name="taskRepeat"><option value="none"' + (recurrence.freq !== 'weekly' ? ' selected' : '') + '>Ne pas répéter</option><option value="weekly"' + (recurrence.freq === 'weekly' ? ' selected' : '') + '>Chaque semaine</option></select>') +
+            '<div class="field" data-task-repeat-extra><label class="field-label" for="task-repeat-interval">Toutes les</label><div class="input-suffix"><input type="number" class="input" id="task-repeat-interval" name="taskInterval" min="1" max="52" step="1" value="' + (Number(recurrence.interval) || 1) + '"><span>semaine(s)</span></div></div>' +
+            '<div class="field span-2" data-task-repeat-extra><span class="field-label" id="task-weekdays-label">Les jours suivants</span><div class="weekday-picker" role="group" aria-labelledby="task-weekdays-label">' +
+              U.WEEKDAYS.map((d) => '<label class="weekday-toggle" title="' + esc(d.long) + '"><input type="checkbox" name="taskWeekdays" value="' + d.value + '" aria-label="' + esc(d.long) + '"' + (selectedDays.includes(d.value) ? ' checked' : '') + '><span>' + d.short.charAt(0) + '</span></label>').join('') +
+            '</div></div>' +
+            '<div class="field" data-task-repeat-extra>' + UI.field('Fin de la répétition', '<select class="input" name="taskEnd"><option value="never"' + (endMode === 'never' ? ' selected' : '') + '>Toujours</option><option value="count"' + (endMode === 'count' ? ' selected' : '') + '>Après un nombre d’occurrences</option><option value="until"' + (endMode === 'until' ? ' selected' : '') + '>À une date</option></select>') + '</div>' +
+            '<div class="field" data-task-count>' + UI.field('Nombre d’occurrences', '<input type="number" class="input" name="taskCount" min="1" step="1" value="' + (Number(recurrence.count) || 4) + '">', { hint: 'Inclut la première tâche : 4 = quatre tâches au total.' }) + '</div>' +
+            '<div class="field" data-task-until>' + UI.field('Dernier jour inclus', '<input type="date" class="input" name="taskUntil" value="' + esc(recurrence.until || '') + '">') + '</div>' +
+          '</div><p class="field-hint">La première occurrence est le premier jour choisi à partir de l’échéance. Chaque occurrence peut être terminée séparément.</p>' +
+        '</div>' +
         '<div class="field span-2" data-panel="school"' + (schoolVisible ? '' : ' hidden') + '>' +
           '<div class="form-grid form-grid-tight">' +
             UI.field('Cours associé', '<select class="input" name="courseId">' + courseOptions(t.courseId) + '</select>') +
@@ -268,6 +287,26 @@
         bindRows(form, '[data-add-subtask]', '.subtask-rows', subtaskRow);
         bindRows(form, '[data-add-link]', '.link-rows', linkRow);
         bindRows(form, '[data-add-team]', '.team-rows', teamRow);
+        function refreshTaskRecurrence() {
+          const editingSeries = !series || val(form, 'taskScope') === 'following';
+          form.querySelector('[data-task-recurrence-editor]').hidden = !editingSeries;
+          const repeating = editingSeries && val(form, 'taskRepeat') === 'weekly';
+          U.qsa('[data-task-repeat-extra]', form).forEach((el) => { el.hidden = !repeating; });
+          form.querySelector('[data-task-count]').hidden = !repeating || val(form, 'taskEnd') !== 'count';
+          form.querySelector('[data-task-until]').hidden = !repeating || val(form, 'taskEnd') !== 'until';
+          const del = form.querySelector('#task-delete');
+          if (del) del.innerHTML = UI.icon('trash', 15) + (series && editingSeries ? ' Supprimer cette occurrence et les suivantes' : series ? ' Supprimer cette occurrence' : ' Supprimer');
+        }
+        ['taskScope', 'taskRepeat', 'taskEnd'].forEach((name) => {
+          if (form.elements[name]) form.elements[name].addEventListener('change', refreshTaskRecurrence);
+        });
+        refreshTaskRecurrence();
+        let weekdaysTouched = !!series;
+        U.qsa('input[name=taskWeekdays]', form).forEach((el) => el.addEventListener('change', () => { weekdaysTouched = true; }));
+        form.elements.due.addEventListener('change', () => {
+          const due = U.parseDate(val(form, 'due'));
+          if (due && !weekdaysTouched) U.qsa('input[name=taskWeekdays]', form).forEach((el) => { el.checked = Number(el.value) === due.getDay(); });
+        });
 
         const catRadios = U.qsa('input[name=category]', form);
         const schoolPanel = form.querySelector('[data-panel=school]');
@@ -307,6 +346,7 @@
 
         const del = form.querySelector('#task-delete');
         bindDelete(del, function () {
+          if (series && val(form, 'taskScope') === 'following') Store.stopTaskSeries(t);
           Store.remove('tasks', id);
           UI.closeModal();
           UI.toast('Tâche supprimée.', { type: 'info' });
@@ -324,13 +364,42 @@
           if (!a || a.courseId !== courseId) assessmentId = null;
         }
         const progress = category === 'work' ? numVal(form, 'progressWork', 0) : numVal(form, 'progress', 0);
+        const due = val(form, 'due') || null;
+        const scope = val(form, 'taskScope') || 'following';
+        const changeSeries = !series || scope === 'following';
+        const repeating = changeSeries && val(form, 'taskRepeat') === 'weekly';
+        if ((repeating || checked(form, 'showInCalendar')) && !U.parseDate(due)) {
+          form.elements.due.focus();
+          throw invalid('Choisissez une échéance pour la répétition ou l’affichage au calendrier.');
+        }
+        let rule = { freq: 'none' };
+        if (repeating) {
+          if (status === 'done') throw invalid('Choisissez une tâche à faire pour créer ou modifier une série.');
+          const interval = numVal(form, 'taskInterval', 0);
+          const weekdays = U.qsa('input[name=taskWeekdays]:checked', form).map((el) => Number(el.value));
+          if (!Number.isInteger(interval) || interval < 1 || interval > 52) throw invalid('L’intervalle doit être un nombre entier entre 1 et 52 semaines.');
+          if (!weekdays.length) throw invalid('Choisissez au moins un jour de répétition.');
+          rule = { freq: 'weekly', interval: interval, weekdays: weekdays };
+          if (val(form, 'taskEnd') === 'count') {
+            rule.count = numVal(form, 'taskCount', 0);
+            if (!Number.isSafeInteger(rule.count) || rule.count < 1) throw invalid('Indiquez un nombre entier d’occurrences supérieur ou égal à 1.');
+          } else if (val(form, 'taskEnd') === 'until') {
+            rule.until = val(form, 'taskUntil');
+            if (!rule.until || rule.until < U.dateKey(due)) throw invalid('La date de fin doit être égale ou postérieure à la première échéance.');
+            const first = U.startOfDay(due);
+            const firstWeek = U.startOfWeek(first, 1);
+            while (!weekdays.includes(first.getDay()) || (U.diffDays(U.startOfWeek(first, 1), firstWeek) / 7) % interval !== 0) first.setDate(first.getDate() + 1);
+            if (U.dateKey(first) > rule.until) throw invalid('Aucun jour choisi ne se trouve avant la fin de la répétition.');
+          }
+        }
         const patch = {
           title: title,
           description: val(form, 'description'),
           category: category,
           status: status,
           priority: val(form, 'priority') || 'normal',
-          due: val(form, 'due') || null,
+          due: due,
+          showInCalendar: checked(form, 'showInCalendar'),
           estimate: numVal(form, 'estimate', null),
           courseId: courseId,
           projectId: category === 'work' ? (val(form, 'projectId') || null) : null,
@@ -348,12 +417,7 @@
           else patch.completedAt = existing.completedAt || U.toISOdt(new Date());
         }
 
-        let saved;
-        if (isNew) {
-          saved = Store.add('tasks', patch);
-        } else {
-          saved = Store.put('tasks', id, patch);
-        }
+        const saved = Store.saveTask(id, patch, rule, scope);
         UI.toast(isNew ? 'Tâche créée.' : 'Tâche mise à jour.', { type: 'success' });
 
         if (saved && saved.status === 'done' && saved.assessmentId) {

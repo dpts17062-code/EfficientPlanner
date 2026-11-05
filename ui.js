@@ -331,6 +331,7 @@
     else if (project) meta += '<span class="chip plain-chip">' + icon('folder', 12) + esc(project.name) + '</span>';
     if (task.priority === 'urgent' || task.priority === 'high') meta += priorityChip(task.priority);
     if (task.due) meta += '<span class="chip due-chip' + (overdue ? ' is-overdue' : '') + '">' + icon('clock', 12) + esc(U.dueText(task.due)) + '</span>';
+    if (task.seriesId) meta += '<span class="chip plain-chip" title="Occurrence indépendante d’une tâche récurrente">' + icon('repeat', 12) + 'Récurrente</span>';
     if (showMeta && subs.length) meta += '<span class="chip plain-chip">' + icon('check', 12) + subsDone + '/' + subs.length + '</span>';
     if (showMeta && task.estimate) meta += '<span class="chip plain-chip">' + icon('clock', 12) + esc(U.humanDuration(task.estimate)) + '</span>';
     if (showMeta && task.tags && task.tags.length) {
@@ -357,13 +358,15 @@
     const o = opts || {};
     const color = occ.color || (occ.courseId && Store.find('courses', occ.courseId) ? Store.find('courses', occ.courseId).color : Store.catColor(occ.category));
     const draggable = o.draggable !== false && occ.source === 'event' && !occ.isRecurring;
-    const action = occ.source === 'course' ? 'course:open' : 'event:edit';
+    const isTask = occ.source === 'task';
+    const action = isTask ? 'task:edit' : occ.source === 'course' ? 'course:open' : 'event:edit';
     const id = occ.source === 'course' ? occ.courseId : occ.id;
-    return '<button type="button" class="event-chip' + (occ.source === 'course' ? ' is-course' : '') + '" style="--c:' + esc(color) + '"' +
+    return '<button type="button" class="event-chip' + (occ.source === 'course' ? ' is-course' : '') + (isTask ? ' task-banner' + (occ.status === 'done' ? ' is-done' : '') : '') + '" style="--c:' + esc(color) + '"' +
       ' data-action="' + action + '" data-id="' + esc(id) + '"' +
       (draggable ? ' draggable="true" data-drag-id="' + esc(occ.id) + '" data-drag-start="' + esc(occ.start) + '"' : '') +
-      ' title="' + esc(occ.title + ' · ' + U.fmtRange(occ.start, occ.end) + (occ.isRecurring ? ' · série récurrente' : '')) + '">' +
-      (o.showTime !== false ? '<span class="event-time">' + esc(U.fmtTime(occ.start)) + '</span>' : '') +
+      ' title="' + esc(occ.title + ' · ' + (isTask ? 'Échéance : ' + U.fmtDateTime(occ.start) : U.fmtRange(occ.start, occ.end)) + (occ.isRecurring ? ' · série récurrente' : '') + (isTask && occ.status === 'done' ? ' · Terminée' : '')) + '">' +
+      (isTask ? icon(occ.status === 'done' ? 'check' : 'tasks', 12) : '') +
+      (o.showTime !== false || isTask ? '<span class="event-time">' + esc(U.fmtTime(occ.start)) + '</span>' : '') +
       '<span class="event-title">' + esc(occ.title) + '</span></button>';
   }
 
